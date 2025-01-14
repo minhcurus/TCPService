@@ -11,7 +11,7 @@ namespace ServerApp
     {
         static List<TcpClient> list = new List<TcpClient>();
 
-        static void Broadcast(string msg, TcpClient sender)
+        static void Broadcast(string msg, TcpClient sender) // phat lai thong bao
         {
             byte[] buffer = Encoding.ASCII.GetBytes(msg);
             lock (list)
@@ -52,7 +52,7 @@ namespace ServerApp
             }
             catch (Exception e)
             {
-                Console.WriteLine("Exception: {0}", e.Message);
+                Console.WriteLine($"Exception: {e.Message}");
             }
             finally
             {
@@ -64,37 +64,40 @@ namespace ServerApp
 
         static void ProcessMessage(object parm)
         {
-            string data;
-            int count;
-            bool first = true;
-
             try
             {
                 TcpClient client = parm as TcpClient;
-                Byte[] bytes = new Byte[1024];
                 NetworkStream stream = client.GetStream();
+                byte[] buffer = new byte[1024];
+                int bytesRead;
 
-                while ((count = stream.Read(bytes, 0, bytes.Length)) != 0)
+                while((bytesRead = stream.Read(buffer, 0, buffer.Length)) != 0)
                 {
-                    data = System.Text.Encoding.ASCII.GetString(bytes, 0, count);
-                    if (first)
+                    //tra chuoi
+                    string receivedData = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                    string[] part = receivedData.Split('*');
+                    string name = part[0];
+                    string message = part[1];
+                    string file = part[2];
+
+                    //luu duoi dinh dang YYYYMMddHHmmss.txt
+                    
+                    if (file != "")
                     {
-                        Console.Write($"Received {data} at {DateTime.Now:t}: ");
-                        Broadcast(data, client);
-                        first = false;
+                        string fileName = DateTime.Now.ToString("yyyyMMddHHmmss") + ".txt";
+                        File.WriteAllText(fileName, file);
+                        Console.WriteLine($"File received and saved as {fileName}");
                     }
-                    else
-                    {
-                        Console.WriteLine($"{data}");
-                        Broadcast(data, client);
-                        first = true;
-                    }
+
+                    //in thong bao
+                    Console.WriteLine($"Received message from {name} at {DateTime.Now:t}: {message}");
+                    Broadcast(name + ": " + message, client);
                 }
                 client.Close();
             }
             catch (Exception e)
             {
-                Console.WriteLine("{0}", e.Message);
+                Console.WriteLine($"{e.Message}");
                 Console.WriteLine("Waiting...");
             }
         }

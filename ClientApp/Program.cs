@@ -1,4 +1,6 @@
-﻿using System.Net.Sockets;
+﻿using System;
+using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace ClientApp
@@ -10,55 +12,70 @@ namespace ClientApp
         {
             try
             {
-                TcpClient client = new TcpClient(server, port);
                 Console.Title = "Client Application";
-                NetworkStream stream = client.GetStream();
+                TcpClient client = new TcpClient(server, port);
+                NetworkStream stream = null;
 
-                Console.Write("Input name:");
-                string name = Console.ReadLine(); // tạo name 
-
-                bool first = true;
                 Thread thread = new Thread(() =>
                 {
-                    while (true)
+                    try
                     {
-                        byte[] buffer = new byte[256];
-                        int byteRead = stream.Read(buffer, 0, buffer.Length);
-                        string data = Encoding.ASCII.GetString(buffer, 0, byteRead);
-                        if (first)
+                        byte[] buffer = new byte[1024];
+                        while (true)
                         {
-                            Console.Write($"{data}:");
-                            first = false;
-                        }
-                        else
-                        {
-                            Console.WriteLine($"{data}");
-                            first = true;
+                            stream = client.GetStream();
+                            int byteRead = stream.Read(buffer, 0, buffer.Length);
+                            if (byteRead == 0) break;
+
+                            //tra chuoi
+                            string data = Encoding.ASCII.GetString(buffer, 0, byteRead);
+                            Console.WriteLine(data);
                         }
                     }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Error while reading from server: " + e.Message);
+                    }
+
                 });
                 thread.Start();
 
-                Console.WriteLine("Input message <press Enter to exit>:");
 
+                //nhap ten
+                Console.Write("What's your name?");
+                string name = Console.ReadLine();
+
+                //nhap tin nhan
+                Console.WriteLine("Type message or type 'upload_file:<FileName>':");
                 while (true)
                 {
                     string message = Console.ReadLine();
-                    if (message == string.Empty)
+
+                    string file = "";
+                    if(message.Contains("upload_file:"))
                     {
-                        break;
+                        string fileName = message.Substring(12);
+                        if (File.Exists(fileName))
+                        {
+                           file = File.ReadAllText(fileName);
+                            Console.WriteLine($"Sent file: {fileName}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"File {fileName} not found!");
+                            break;
+                        }
                     }
-
-                    Byte[] msg = System.Text.Encoding.ASCII.GetBytes($"{message}");
-                    Byte[] nme = System.Text.Encoding.ASCII.GetBytes($"{name}");
-
-                    stream.Write(nme, 0, nme.Length);
-                    stream.Write(msg, 0, msg.Length);
+                    //gộp lại thành data
+                    string combine = name + "*" + message + "*" + file;
+                    byte[] data = Encoding.ASCII.GetBytes(combine);
+                    stream = client.GetStream();
+                    stream.Write(data, 0, data.Length);
                 }
             }
             catch (Exception e)
             {
-                Console.WriteLine("Exception: {0}", e.Message);
+                Console.WriteLine($"Exception: {e.Message}");
             }
         }
         static void Main(string[] args)
